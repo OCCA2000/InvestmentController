@@ -17,10 +17,13 @@ def generate_files():
         first_interest_payment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
         
         num_capital_repayments = len(capital_repayments_dates)
+        actual_principal_return = round(amount_paid / num_capital_repayments, 2)
         payment_dates = []
         interest_payments = []
         principal_remaining = []
         principal_returned = []
+        actual_principal_returned = []
+        prize = []
         monthly_interest_rate = annual_interest_rate / 100 / 12
         
         current_date = first_interest_payment_date
@@ -38,8 +41,12 @@ def generate_files():
             if date in capital_repayments_dates:
                 remaining_principal -= repayment_amount
                 principal_returned.append(repayment_amount)
+                actual_principal_returned.append(actual_principal_return)
+                prize.append(repayment_amount-actual_principal_return)
             else:
                 principal_returned.append(0)
+                actual_principal_returned.append(0)
+                prize.append(0)
             principal_remaining.append(round(remaining_principal, 2))
 
         
@@ -47,7 +54,9 @@ def generate_files():
             "Fecha de Pago": payment_dates,
             "Capital Restante": principal_remaining,
             "Interés Mensual": interest_payments,
-            "Capital Devuelto": principal_returned
+            "Capital de retorno": principal_returned,
+            "Capital Devuelto": actual_principal_returned,
+            "Premio": prize
         })
         
         amortization_table["ID"] = investment_id
@@ -56,29 +65,13 @@ def generate_files():
         amortization_table["Fecha de Compra"] = purchase_date.strftime('%Y-%m-%d')
         amortization_table["Fecha de Vencimiento"] = maturity_date.strftime('%Y-%m-%d')
         amortization_table["Tasa nominal de interés anual"] = annual_interest_rate
-        amortization_table["Amortización"] = amortization_table["Interés Mensual"] + amortization_table["Capital Devuelto"]
+        amortization_table["Amortización"] = amortization_table["Interés Mensual"] + amortization_table["Capital Devuelto"] + amortization_table["Premio"]
         
         amortization_table["Fecha de Pago"] = amortization_table["Fecha de Pago"].dt.strftime('%Y-%m-%d')
         amortization_table = amortization_table.sort_values(by=["Fecha de Pago"]).drop_duplicates()
-        
-        # Add additional rows based on amount paid
-        additional_principal_value = round(amount_paid / num_capital_repayments, 2)
-        additional_interest_value = round((principal - amount_paid) / num_capital_repayments, 2)
-        additional_rows = pd.DataFrame({
-            "ID": [investment_id] * num_capital_repayments,
-            "Fecha de Compra": [purchase_date.strftime('%Y-%m-%d')] * num_capital_repayments,
-            "Propietario": [owner] * num_capital_repayments,
-            "Rendimiento": [yield_value] * num_capital_repayments,
-            "Fecha de Pago": [date.strftime('%Y-%m-%d') for date in capital_repayments_dates],
-            "Fecha de Vencimiento": [maturity_date.strftime('%Y-%m-%d')] * num_capital_repayments,
-            "Tasa nominal de interés anual": [annual_interest_rate] * num_capital_repayments,
-            "Capital Restante": [additional_principal_value] * num_capital_repayments,
-            "Interés Mensual": [additional_interest_value] * num_capital_repayments,
-            "Capital Devuelto": [additional_principal_value] * num_capital_repayments
-        })
-        
+        amortization_table = amortization_table.drop('Capital de retorno', axis=1)
+
         # Concatenate tables and sort by Fecha de Pago
-        #final_table = pd.concat([amortization_table, additional_rows], ignore_index=True)
         final_table = pd.concat([amortization_table], ignore_index=True)
         final_table = final_table.sort_values(by=["Fecha de Pago"])
         
