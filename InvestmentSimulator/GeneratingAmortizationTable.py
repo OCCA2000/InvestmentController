@@ -35,16 +35,19 @@ def generate_files():
         for date in payment_dates:
             interest_payment = remaining_principal * monthly_interest_rate
             interest_payments.append(round(interest_payment, 2))
-            principal_returned.append(0)
             if date in capital_repayments_dates:
                 remaining_principal -= repayment_amount
+                principal_returned.append(repayment_amount)
+            else:
+                principal_returned.append(0)
             principal_remaining.append(round(remaining_principal, 2))
+
         
         amortization_table = pd.DataFrame({
             "Fecha de Pago": payment_dates,
-            "Principal Restante": principal_remaining,
+            "Capital Restante": principal_remaining,
             "Interés Mensual": interest_payments,
-            "Principal Devuelto": principal_returned
+            "Capital Devuelto": principal_returned
         })
         
         amortization_table["ID"] = investment_id
@@ -53,6 +56,7 @@ def generate_files():
         amortization_table["Fecha de Compra"] = purchase_date.strftime('%Y-%m-%d')
         amortization_table["Fecha de Vencimiento"] = maturity_date.strftime('%Y-%m-%d')
         amortization_table["Tasa nominal de interés anual"] = annual_interest_rate
+        amortization_table["Amortización"] = amortization_table["Interés Mensual"] + amortization_table["Capital Devuelto"]
         
         amortization_table["Fecha de Pago"] = amortization_table["Fecha de Pago"].dt.strftime('%Y-%m-%d')
         amortization_table = amortization_table.sort_values(by=["Fecha de Pago"]).drop_duplicates()
@@ -68,13 +72,14 @@ def generate_files():
             "Fecha de Pago": [date.strftime('%Y-%m-%d') for date in capital_repayments_dates],
             "Fecha de Vencimiento": [maturity_date.strftime('%Y-%m-%d')] * num_capital_repayments,
             "Tasa nominal de interés anual": [annual_interest_rate] * num_capital_repayments,
-            "Principal Restante": [additional_principal_value] * num_capital_repayments,
+            "Capital Restante": [additional_principal_value] * num_capital_repayments,
             "Interés Mensual": [additional_interest_value] * num_capital_repayments,
-            "Principal Devuelto": [additional_principal_value] * num_capital_repayments
+            "Capital Devuelto": [additional_principal_value] * num_capital_repayments
         })
         
         # Concatenate tables and sort by Fecha de Pago
-        final_table = pd.concat([amortization_table, additional_rows], ignore_index=True)
+        #final_table = pd.concat([amortization_table, additional_rows], ignore_index=True)
+        final_table = pd.concat([amortization_table], ignore_index=True)
         final_table = final_table.sort_values(by=["Fecha de Pago"])
         
         file_path_excel = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
@@ -86,7 +91,7 @@ def generate_files():
         if file_path_sql:
             sql_statements = []
             for _, row in final_table.iterrows():
-                sql_statements.append(f"INSERT INTO amortization (inv_id, am_purchase_date, am_expiration_date, am_owner, am_enterprise, am_months, am_days, am_rate, am_return, am_interest, am_principal, am_retention, am_interest_total, am_sold_date, am_expired, is_active, is_deleted) VALUES ({row['ID']}, '{row['Fecha de Compra']}', '{row['Fecha de Pago']}', '{row['Propietario']}', 'BONOS DEL ESTADO {row['Fecha de Vencimiento']}', 0, 0, {round(row['Tasa nominal de interés anual'], 2)}, {round(row['Rendimiento'], 2)}, {round(row['Interés Mensual'], 2)}, {round(row['Principal Devuelto'], 2)}, 0, {round(row['Interés Mensual'], 2)}, NULL, 0, 0, 0);\n")
+                sql_statements.append(f"INSERT INTO amortization (inv_id, am_purchase_date, am_expiration_date, am_owner, am_enterprise, am_months, am_days, am_rate, am_return, am_interest, am_principal, am_retention, am_interest_total, am_sold_date, am_expired, is_active, is_deleted) VALUES ({row['ID']}, '{row['Fecha de Compra']}', '{row['Fecha de Pago']}', '{row['Propietario']}', 'BONOS DEL ESTADO {row['Fecha de Vencimiento']}', 0, 0, {round(row['Tasa nominal de interés anual'], 2)}, {round(row['Rendimiento'], 2)}, {round(row['Interés Mensual'], 2)}, {round(row['Capital Devuelto'], 2)}, 0, {round(row['Interés Mensual'], 2)}, NULL, 0, 0, 0);\n")
             
             with open(file_path_sql, "w") as sql_file:
                 sql_file.writelines(sql_statements)
