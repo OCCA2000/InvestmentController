@@ -12,13 +12,14 @@ def generate_files():
         purchase_date = datetime.strptime(entry_purchase_date.get(), '%Y-%m-%d')
         maturity_date = datetime.strptime(entry_maturity_date.get(), '%Y-%m-%d')
         annual_interest_rate = float(entry_annual_interest_rate.get())
-        capital_repayments_dates = [datetime.strptime(d.strip(), '%Y-%m-%d') for d in entry_capital_repayments_dates.get().split(',')]
+        try:
+            capital_repayments_dates = [datetime.strptime(d.strip(), '%Y-%m-%d') for d in entry_capital_repayments_dates.get().split(',')]
+        except:
+            capital_repayments_dates = []
         amount_paid = float(entry_amount_paid.get())
         first_interest_payment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
         payment_frequency = int(entry_payment_frequency.get())
         
-        num_capital_repayments = len(capital_repayments_dates)
-        actual_principal_return = round(amount_paid / num_capital_repayments, 2)
         payment_dates = []
         interest_payments = []
         principal_remaining = []
@@ -32,9 +33,14 @@ def generate_files():
             payment_dates.append(current_date)
             next_month = current_date.month + payment_frequency if current_date.month + payment_frequency <= 12 else current_date.month + payment_frequency - 12
             next_year = current_date.year if current_date.month + payment_frequency <= 12 else current_date.year + 1
-            print(f'{next_year}-{next_month}-{maturity_date.day}')
             current_date = datetime(next_year, next_month, maturity_date.day)
         
+        if (len(capital_repayments_dates)<=0):
+            capital_repayments_dates = payment_dates
+
+        num_capital_repayments = len(capital_repayments_dates)
+        actual_principal_return = round(amount_paid / num_capital_repayments, 2)
+
         remaining_principal = principal
         repayment_amount = principal / num_capital_repayments
         for date in payment_dates:
