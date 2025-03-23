@@ -15,6 +15,7 @@ def generate_files():
         capital_repayments_dates = [datetime.strptime(d.strip(), '%Y-%m-%d') for d in entry_capital_repayments_dates.get().split(',')]
         amount_paid = float(entry_amount_paid.get())
         first_interest_payment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
+        payment_frequency = int(entry_payment_frequency.get())
         
         num_capital_repayments = len(capital_repayments_dates)
         actual_principal_return = round(amount_paid / num_capital_repayments, 2)
@@ -29,8 +30,9 @@ def generate_files():
         current_date = first_interest_payment_date
         while current_date <= maturity_date:
             payment_dates.append(current_date)
-            next_month = current_date.month + 1 if current_date.month < 12 else 1
-            next_year = current_date.year if current_date.month < 12 else current_date.year + 1
+            next_month = current_date.month + payment_frequency if current_date.month + payment_frequency <= 12 else current_date.month + payment_frequency - 12
+            next_year = current_date.year if current_date.month + payment_frequency <= 12 else current_date.year + 1
+            print(f'{next_year}-{next_month}-{maturity_date.day}')
             current_date = datetime(next_year, next_month, maturity_date.day)
         
         remaining_principal = principal
@@ -95,7 +97,7 @@ def generate_files():
 root = tk.Tk()
 root.title("Generador de Tabla de Amortización")
 
-labels = ["Investment ID:", "Owner:", "Yield Value:", "Principal:", "Purchase Date (YYYY-MM-DD):", "Maturity Date (YYYY-MM-DD):", "Annual Interest Rate:", "Capital Repayment Dates (comma-separated YYYY-MM-DD):", "Amount Paid:", "First Interest Payment Date (YYYY-MM-DD):"]
+labels = ["Investment ID:", "Owner:", "Yield Value:", "Principal:", "Purchase Date (YYYY-MM-DD):", "Maturity Date (YYYY-MM-DD):", "Annual Interest Rate:", "Capital Repayment Dates (comma-separated YYYY-MM-DD):", "Amount Paid:", "First Interest Payment Date (YYYY-MM-DD):", "Payment frequency:"]
 entries = []
 
 for i, label in enumerate(labels):
@@ -104,7 +106,7 @@ for i, label in enumerate(labels):
     entry.grid(row=i, column=1, padx=10, pady=5)
     entries.append(entry)
 
-entry_investment_id, entry_owner, entry_yield_value, entry_principal, entry_purchase_date, entry_maturity_date, entry_annual_interest_rate, entry_capital_repayments_dates, entry_amount_paid, entry_first_interest_payment_date = entries
+entry_investment_id, entry_owner, entry_yield_value, entry_principal, entry_purchase_date, entry_maturity_date, entry_annual_interest_rate, entry_capital_repayments_dates, entry_amount_paid, entry_first_interest_payment_date, entry_payment_frequency = entries
 
 tk.Button(root, text="Generar Amortización y SQL", command=generate_files).grid(row=len(labels), columnspan=2, pady=10)
 
