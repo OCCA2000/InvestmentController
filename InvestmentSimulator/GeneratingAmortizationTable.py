@@ -3,6 +3,7 @@ from tkinter import filedialog, messagebox
 import pandas as pd
 from datetime import datetime, timedelta
 import pymysql
+from dateutil.relativedelta import relativedelta
 
 def connect_to_database():
     database='inversiones'
@@ -16,6 +17,7 @@ def generate_files():
         investment_id = entry_investment_id.get()
         first_interest_payment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
         payment_frequency = int(entry_payment_frequency.get())
+        deferral_installments = int(entry_deferral_installments.get())
         try:
             capital_repayments_dates = [datetime.strptime(d.strip(), '%Y-%m-%d') for d in entry_capital_repayments_dates.get().split(',')]
         except:
@@ -27,7 +29,8 @@ def generate_files():
         values = cursor.fetchone()
         columns = [i[0] for i in cursor.description]
         investment = pd.DataFrame([values], columns=columns)
-        principal = investment['inv_monto_a_negociar'][0]
+        principal = investment['inv_valor_nominal'][0]
+        first_installment_date = investment['inv_fecha_emision'][0] + relativedelta(months=payment_frequency)
         maturity_date = investment['inv_fecha_vencimiento'][0]
         annual_interest_rate = investment['inv_tasa_interes'][0]
         amount_paid = investment['inv_capital_invertido'][0]-investment['inv_valor_interes'][0]
@@ -40,16 +43,17 @@ def generate_files():
         prize = []
         monthly_interest_rate = annual_interest_rate / 100 / 12
         
-        current_date = first_interest_payment_date
+        current_date = first_installment_date
 
-        while current_date.date() <= maturity_date:
+        while current_date <= maturity_date:
             payment_dates.append(current_date)
             next_month = current_date.month + payment_frequency if current_date.month + payment_frequency <= 12 else current_date.month + payment_frequency - 12
             next_year = current_date.year if current_date.month + payment_frequency <= 12 else current_date.year + 1
             current_date = datetime(next_year, next_month, maturity_date.day)
+            current_date = current_date.date()
         
         if (len(capital_repayments_dates)<=0):
-            capital_repayments_dates = payment_dates
+            capital_repayments_dates = payment_dates[deferral_installments:]
 
         num_capital_repayments = len(capital_repayments_dates)
         actual_principal_return = round(amount_paid / num_capital_repayments, 2)
@@ -84,9 +88,6 @@ def generate_files():
         amortization_table["Fecha de Vencimiento"] = maturity_date.strftime('%Y-%m-%d')
         amortization_table["Tasa nominal de interés anual"] = annual_interest_rate
         amortization_table["Amortización"] = amortization_table["Interés Mensual"] + amortization_table["Capital Devuelto"] + amortization_table["Premio"]
-        
-        amortization_table["Fecha de Pago"] = amortization_table["Fecha de Pago"].dt.strftime('%Y-%m-%d')
-        amortization_table = amortization_table.sort_values(by=["Fecha de Pago"]).drop_duplicates()
         amortization_table = amortization_table.drop('Capital de retorno', axis=1)
 
         # Concatenate tables and sort by Fecha de Pago
@@ -117,6 +118,7 @@ root.title("Generador de Tabla de Amortización")
 labels = ["ID:",
           "Primera fecha de pago (YYYY-MM-DD):", 
           "Frecuencia de pago:",
+          "Cantidad de cuotas a diferir:",
           "Fechas de retorno de capital (separadas por comas YYYY-MM-DD):",
          ]
 entries = []
@@ -127,7 +129,7 @@ for i, label in enumerate(labels):
     entry.grid(row=i, column=1, padx=10, pady=5)
     entries.append(entry)
 
-entry_investment_id, entry_first_interest_payment_date, entry_payment_frequency, entry_capital_repayments_dates = entries
+entry_investment_id, entry_first_interest_payment_date, entry_payment_frequency, entry_deferral_installments, entry_capital_repayments_dates = entries
 
 tk.Button(root, text="Generar Amortización y SQL", command=generate_files).grid(row=len(labels), columnspan=2, pady=10)
 
