@@ -16,8 +16,10 @@ def generate_files():
     try:
         investment_id = entry_investment_id.get()
         first_interest_payment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
-        payment_frequency = int(entry_payment_frequency.get())
-        deferral_installments = int(entry_deferral_installments.get())
+        payment_frequency = int(entry_payment_frequency.get() or 1)
+        deferral_installments = int(entry_deferral_installments.get() or 0)
+        amortization_type = entry_amortization_type.get()
+        amortization_type = amortization_type.capitalize()
         try:
             capital_repayments_dates = [datetime.strptime(d.strip(), '%Y-%m-%d') for d in entry_capital_repayments_dates.get().split(',')]
         except:
@@ -41,7 +43,7 @@ def generate_files():
         principal_returned = []
         actual_principal_returned = []
         prize = []
-        monthly_interest_rate = annual_interest_rate / 100 / 12
+        monthly_interest_rate = annual_interest_rate / 100 / 12 * payment_frequency
         
         current_date = first_installment_date
 
@@ -52,22 +54,39 @@ def generate_files():
             current_date = datetime(next_year, next_month, maturity_date.day)
             current_date = current_date.date()
         
-        if (len(capital_repayments_dates)<=0):
+        if (len(capital_repayments_dates)>0):
+            capital_repayments_dates = [d.date() for d in capital_repayments_dates]
+        else:
             capital_repayments_dates = payment_dates[deferral_installments:]
 
         num_capital_repayments = len(capital_repayments_dates)
-        actual_principal_return = round(amount_paid / num_capital_repayments, 2)
-
+        
         remaining_principal = principal
-        repayment_amount = principal / num_capital_repayments
+        
+        repayment_amount = round(principal / num_capital_repayments,2)
+        principal_return = repayment_amount
+        actual_principal_return = round(amount_paid / num_capital_repayments, 2)
+        
+        total_payment = (principal * monthly_interest_rate * pow(1+monthly_interest_rate,num_capital_repayments))/(pow(1+monthly_interest_rate,num_capital_repayments)-1)
+
         for date in payment_dates:
-            interest_payment = remaining_principal * monthly_interest_rate * payment_frequency
+            interest_payment = remaining_principal * monthly_interest_rate
             interest_payments.append(round(interest_payment, 2))
             if date in capital_repayments_dates:
-                remaining_principal -= repayment_amount
-                principal_returned.append(repayment_amount)
-                actual_principal_returned.append(actual_principal_return)
-                prize.append(round(repayment_amount-actual_principal_return,2))
+                if(amortization_type=='A'):
+                    remaining_principal -= repayment_amount
+                    principal_returned.append(repayment_amount)
+                    actual_principal_returned.append(actual_principal_return)
+                    prize.append(round(repayment_amount-actual_principal_return,2))
+                elif(amortization_type=='F'):
+                    repayment_amount = total_payment - interest_payment
+                    remaining_principal -= repayment_amount
+                    principal_returned.append(round(repayment_amount,2))
+                    principal_equivalent=round(actual_principal_return*repayment_amount/principal_return,2)
+                    actual_principal_returned.append(principal_equivalent)
+                    prize.append(round(repayment_amount-principal_equivalent,2))
+                else:
+                    raise Exception("Tipo de amortización incorrecto.")
             else:
                 principal_returned.append(0)
                 actual_principal_returned.append(0)
@@ -87,8 +106,8 @@ def generate_files():
         amortization_table["ID"] = investment_id
         amortization_table["Fecha de Vencimiento"] = maturity_date.strftime('%Y-%m-%d')
         amortization_table["Tasa nominal de interés anual"] = annual_interest_rate
-        amortization_table["Amortización"] = amortization_table["Interés Mensual"] + amortization_table["Capital Devuelto"] + amortization_table["Premio"]
-        amortization_table = amortization_table.drop('Capital de retorno', axis=1)
+        amortization_table["Flujo"] = amortization_table["Interés Mensual"] + amortization_table["Capital Devuelto"] + amortization_table["Premio"]
+        #amortization_table = amortization_table.drop('Capital de retorno', axis=1)
 
         # Concatenate tables and sort by Fecha de Pago
         final_table = pd.concat([amortization_table], ignore_index=True)
@@ -119,6 +138,7 @@ labels = ["ID:",
           "Primera fecha de pago (YYYY-MM-DD):", 
           "Frecuencia de pago:",
           "Cantidad de cuotas a diferir:",
+          "Amortización francesa (f) o alemana (a):",
           "Fechas de retorno de capital (separadas por comas YYYY-MM-DD):",
          ]
 entries = []
@@ -129,7 +149,7 @@ for i, label in enumerate(labels):
     entry.grid(row=i, column=1, padx=10, pady=5)
     entries.append(entry)
 
-entry_investment_id, entry_first_interest_payment_date, entry_payment_frequency, entry_deferral_installments, entry_capital_repayments_dates = entries
+entry_investment_id, entry_first_interest_payment_date, entry_payment_frequency, entry_deferral_installments, entry_amortization_type, entry_capital_repayments_dates = entries
 
 tk.Button(root, text="Generar Amortización y SQL", command=generate_files).grid(row=len(labels), columnspan=2, pady=10)
 
