@@ -118,16 +118,22 @@ def generate_files():
             final_table.to_excel(file_path_excel, index=False, float_format="%.2f")
             messagebox.showinfo("Éxito", f"Archivo Excel guardado en: {file_path_excel}")
         
-        file_path_sql = filedialog.asksaveasfilename(defaultextension=".sql", filetypes=[("SQL files", "*.sql")])
-        if file_path_sql:
-            sql_statements = []
+        sql="SELECT * FROM amortizacion WHERE inv_id = %s"
+        valores=(investment_id)
+        cursor.execute(sql, valores)
+        values = cursor.fetchall()
+        
+        if(len(values)>0):
+            raise Exception(f"Ya existe una tabla de amortización para la inversión {investment_id} en la base de datos.") 
+        else:
             for _, row in final_table.iterrows():
-                pass
-                #sql_statements.append(f"INSERT INTO amortization (inv_id, am_purchase_date, am_expiration_date, am_owner, am_enterprise, am_months, am_days, am_rate, am_return, am_interest, am_principal, am_retention, am_interest_total, am_sold_date, am_expired, is_active, is_deleted) VALUES ({row['ID']}, '{row['Fecha de Compra']}', '{row['Fecha de Pago']}', '{row['Propietario']}', 'BONOS DEL ESTADO {row['Fecha de Vencimiento']}', 0, 0, {round(row['Tasa nominal de interés anual'], 2)}, {round(row['Rendimiento'], 2)}, {round(row['Interés Mensual'], 2)}, {round(row['Capital Devuelto'], 2)}, 0, {round(row['Interés Mensual'], 2)}, NULL, 0, 0, 0);\n")
-            
-            with open(file_path_sql, "w") as sql_file:
-                sql_file.writelines(sql_statements)
-            messagebox.showinfo("Éxito", f"Archivo SQL guardado en: {file_path_sql}")
+                if row['Fecha de Pago'] >= first_interest_payment_date.date():
+                    sql="INSERT INTO amortizacion (inv_id, am_fecha_pago, am_interes, am_capital, am_descuento, am_retention, am_fecha_venta, am_pagada, is_active, is_deleted) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    valores=(row['ID'], row['Fecha de Pago'], row['Interés Mensual'], row['Capital Devuelto'], row['Premio'], 0, '0000-00-00', 0, 1, 0)
+                    cursor.execute(sql, valores)
+                    conn.commit()
+                    
+            messagebox.showinfo("Éxito", "Tabla generada en la base de datos.")
     except Exception as e:
         messagebox.showerror("Error", f"Ocurrió un error: {e}")
 
