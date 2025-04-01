@@ -1,21 +1,10 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import pandas as pd
-from datetime import datetime, timedelta
-import pymysql
-from dateutil.relativedelta import relativedelta
-
-def connect_to_database():
-    database='inversiones'
-    conn = pymysql.connect(host="localhost",user="root",passwd="",db=database)
-    return conn
+from datetime import datetime
 
 def generate_files():
-    conn = connect_to_database()
-    cursor = conn.cursor()
     try:
-        investment_id = entry_investment_id.get()
-        first_interest_payment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
         payment_frequency = int(entry_payment_frequency.get() or 1)
         deferral_installments = int(entry_deferral_installments.get() or 0)
         amortization_type = entry_amortization_type.get()
@@ -25,17 +14,11 @@ def generate_files():
         except:
             capital_repayments_dates = []
 
-        sql="SELECT * FROM inversion WHERE id = %s"
-        valores=(investment_id)
-        cursor.execute(sql, valores)
-        values = cursor.fetchone()
-        columns = [i[0] for i in cursor.description]
-        investment = pd.DataFrame([values], columns=columns)
-        principal = investment['inv_valor_nominal'][0]
-        first_installment_date = investment['inv_fecha_emision'][0] + relativedelta(months=payment_frequency)
-        maturity_date = investment['inv_fecha_vencimiento'][0]
-        annual_interest_rate = investment['inv_tasa_interes'][0]
-        amount_paid = investment['inv_capital_invertido'][0]-investment['inv_valor_interes'][0]
+        principal = float(entry_principal.get())
+        first_installment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
+        maturity_date = datetime.strptime(entry_maturity_date.get(), '%Y-%m-%d')
+        annual_interest_rate = float(entry_annual_interest_rate.get())
+        amount_paid = float(entry_amount_paid.get())
 
         payment_dates = []
         interest_payments = []
@@ -52,7 +35,6 @@ def generate_files():
             next_month = current_date.month + payment_frequency if current_date.month + payment_frequency <= 12 else current_date.month + payment_frequency - 12
             next_year = current_date.year if current_date.month + payment_frequency <= 12 else current_date.year + 1
             current_date = datetime(next_year, next_month, maturity_date.day)
-            current_date = current_date.date()
         
         if (len(capital_repayments_dates)>0):
             capital_repayments_dates = [d.date() for d in capital_repayments_dates]
@@ -103,7 +85,6 @@ def generate_files():
             "Premio": prize
         })
         
-        amortization_table["ID"] = investment_id
         amortization_table["Fecha de Vencimiento"] = maturity_date.strftime('%Y-%m-%d')
         amortization_table["Tasa nominal de interés anual"] = annual_interest_rate
         amortization_table["Flujo"] = amortization_table["Interés Mensual"] + amortization_table["Capital Devuelto"] + amortization_table["Premio"]
@@ -117,35 +98,23 @@ def generate_files():
         if file_path_excel:
             final_table.to_excel(file_path_excel, index=False, float_format="%.2f")
             messagebox.showinfo("Éxito", f"Archivo Excel guardado en: {file_path_excel}")
-        
-        sql="SELECT * FROM amortizacion WHERE inv_id = %s"
-        valores=(investment_id)
-        cursor.execute(sql, valores)
-        values = cursor.fetchall()
-        
-        if(len(values)>0):
-            raise Exception(f"Ya existe una tabla de amortización para la inversión {investment_id} en la base de datos.") 
-        else:
-            for _, row in final_table.iterrows():
-                if row['Fecha de Pago'] >= first_interest_payment_date.date():
-                    sql="INSERT INTO amortizacion (inv_id, am_fecha_pago, am_interes, am_capital, am_descuento, am_retention, am_fecha_venta, am_pagada, is_active, is_deleted) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                    valores=(row['ID'], row['Fecha de Pago'], row['Interés Mensual'], row['Capital Devuelto'], row['Premio'], 0, '0000-00-00', 0, 1, 0)
-                    cursor.execute(sql, valores)
-                    conn.commit()
-                    
-            messagebox.showinfo("Éxito", "Tabla generada en la base de datos.")
+
     except Exception as e:
         messagebox.showerror("Error", f"Ocurrió un error: {e}")
 
 root = tk.Tk()
 root.title("Generador de Tabla de Amortización")
 
-labels = ["ID:",
+labels = [
+          "Capital:",
+          "Tasa de interés anual:",
+          "Fecha de vencimiento (YYYY-MM-DD):",
           "Primera fecha de pago (YYYY-MM-DD):", 
           "Frecuencia de pago:",
           "Cantidad de cuotas a diferir:",
           "Amortización francesa (f) o alemana (a):",
           "Fechas de retorno de capital (separadas por comas YYYY-MM-DD):",
+          "Monto pagado por la inversión:",
          ]
 entries = []
 
@@ -155,7 +124,7 @@ for i, label in enumerate(labels):
     entry.grid(row=i, column=1, padx=10, pady=5)
     entries.append(entry)
 
-entry_investment_id, entry_first_interest_payment_date, entry_payment_frequency, entry_deferral_installments, entry_amortization_type, entry_capital_repayments_dates = entries
+entry_principal, entry_annual_interest_rate, entry_maturity_date, entry_first_interest_payment_date, entry_payment_frequency, entry_deferral_installments, entry_amortization_type, entry_capital_repayments_dates, entry_amount_paid = entries
 
 tk.Button(root, text="Generar Amortización y SQL", command=generate_files).grid(row=len(labels), columnspan=2, pady=10)
 
