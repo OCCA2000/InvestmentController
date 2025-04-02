@@ -2,11 +2,13 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import pandas as pd
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 def generate_files():
     try:
         payment_frequency = int(entry_payment_frequency.get() or 1)
         deferral_installments = int(entry_deferral_installments.get() or 0)
+        number_of_installments = int(entry_number_of_installments.get())
         amortization_type = entry_amortization_type.get()
         amortization_type = amortization_type.capitalize()
         try:
@@ -16,7 +18,11 @@ def generate_files():
 
         principal = float(entry_principal.get())
         first_installment_date = datetime.strptime(entry_first_interest_payment_date.get(), '%Y-%m-%d')
-        maturity_date = datetime.strptime(entry_maturity_date.get(), '%Y-%m-%d')
+        maturity_date = entry_maturity_date.get()
+        if not maturity_date:
+            maturity_date = first_installment_date + relativedelta(months=(number_of_installments-1)*payment_frequency)
+        else:
+            maturity_date = datetime.strptime(maturity_date, '%Y-%m-%d')
         annual_interest_rate = float(entry_annual_interest_rate.get())
         amount_paid = float(entry_amount_paid.get())
 
@@ -110,6 +116,7 @@ labels = [
           "Tasa de interés anual:",
           "Fecha de vencimiento (YYYY-MM-DD):",
           "Primera fecha de pago (YYYY-MM-DD):", 
+          "Cantidad de cuotas:",
           "Frecuencia de pago:",
           "Cantidad de cuotas a diferir:",
           "Amortización francesa (f) o alemana (a):",
@@ -124,7 +131,7 @@ for i, label in enumerate(labels):
     entry.grid(row=i, column=1, padx=10, pady=5)
     entries.append(entry)
 
-entry_principal, entry_annual_interest_rate, entry_maturity_date, entry_first_interest_payment_date, entry_payment_frequency, entry_deferral_installments, entry_amortization_type, entry_capital_repayments_dates, entry_amount_paid = entries
+entry_principal, entry_annual_interest_rate, entry_maturity_date, entry_first_interest_payment_date, entry_number_of_installments, entry_payment_frequency, entry_deferral_installments, entry_amortization_type, entry_capital_repayments_dates, entry_amount_paid = entries
 
 tk.Button(root, text="Generar Amortización y SQL", command=generate_files).grid(row=len(labels), columnspan=2, pady=10)
 
