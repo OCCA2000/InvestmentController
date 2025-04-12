@@ -128,8 +128,8 @@ def generate_files():
         else:
             for _, row in final_table.iterrows():
                 if row['Fecha de Pago'] >= first_interest_payment_date.date():
-                    sql="INSERT INTO amortizacion (inv_id, am_fecha_pago, am_interes, am_capital, am_descuento, am_retention, am_fecha_venta, am_pagada, is_active, is_deleted) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                    valores=(row['ID'], row['Fecha de Pago'], row['Interés Mensual'], row['Capital Devuelto'], row['Premio'], 0, '0000-00-00', 0, 1, 0)
+                    sql="INSERT INTO amortizacion (inv_id, am_fecha_pago, am_interes, am_capital, am_descuento, am_devuelto, am_retention, am_fecha_venta, am_pagada, is_active, is_deleted) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    valores=(row['ID'], row['Fecha de Pago'], row['Interés Mensual'], row['Capital de retorno'], row['Premio'], row['Capital Devuelto'], 0, '0000-00-00', 0, 1, 0)
                     cursor.execute(sql, valores)
                     conn.commit()
                     
